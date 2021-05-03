@@ -1,0 +1,24 @@
+{
+  "name": "react-native-share-menu",
+  "description": "Add your app as a target for sharing from other apps and write iOS Share Extensions in React Native.",
+  "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RistoBIn/react-native-share-menu.git"
+  },
+  "keywords": [
+    "react-component",
+    "react-native",
+    "android",
+    "ios",
+    "share",
+    "share-extension",
+    "custom-view"
+  ],
+  "author": {
+    "name": "Risto Binovski"
+  },
+  "homepage": "https://github.com/RistoBIn/react-native-share-menu.git",
+  "license": "MIT",
+  "readmeFilename": "README.md"
+}
