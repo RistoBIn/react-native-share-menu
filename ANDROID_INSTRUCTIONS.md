@@ -24,7 +24,7 @@ dependencies {
 - Register module (in MainApplication.java)
 
 ```java
-import com.rnsharemenu.ShareMenuPackage;  // <--- import
+import com.ristobin.ShareMenuPackage;  // <--- import
 
 public class MainApplication extends Application implements ReactApplication {
   ......

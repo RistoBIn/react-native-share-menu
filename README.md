@@ -1,10 +1,13 @@
 # react-native-share-menu
 
+[![npm version](https://badge.fury.io/js/react-native-share-menu.svg)](https://www.npmjs.com/package/react-native-share-menu)
+
+Add your app as a target for sharing from other apps and write iOS Share Extensions in React Native.
+
 ## Installation
 
 ```bash
-npm i --save https://github.com/RistoBIn/react-native-share-menu.git
-yarn add https://github.com/RistoBIn/react-native-share-menu.git
+npm i --save react-native-share-menu
 ```
 
 ### Automatic Linking (React Native 0.60+)
@@ -36,68 +39,128 @@ react-native link
 ### Example Usage
 
 ```javascript
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import ShareMenu from 'react-native-share-menu';
+import React, { useState, useEffect, useCallback } from "react";
+import { AppRegistry, Text, View, Image, Button } from "react-native";
+import ShareMenu, { ShareMenuReactView } from "react-native-share-menu";
 
-const App = () => {
-    const [sharedData, setSharedData] = useState('');
-
-    useEffect(() => {
-        const handleShare = ((item) => {
-            if (!item) {
-                return;
-            }
-    
-            setSharedData(item);
-        }, []);
-
-        ShareMenu.getInitialShare(handleShare);
-        const listener = ShareMenu.addNewShareListener(handleShare);
-
-        return () => {
-            listener.remove();
-        };
-    }, []);
-
-    return (
-        <View style={styles.container}>
-            <Text style={styles.welcome}>React Native Share Menu</Text>
-            {
-                sharedData ? (
-                    <Text style={styles.instructions}>{JSON.stringify(sharedData)}</Text>
-                ) : null
-            }
-        </View>
-    );
+type SharedItem = {
+  mimeType: string,
+  data: string,
+  extraData: any,
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#FF7777',
-    },
-    welcome: {
-        fontSize: 20,
-        textAlign: 'center',
-        margin: 10,
-    },
-    instructions: {
-        textAlign: 'center',
-        color: '#333333',
-        margin: 20,
-    },
-    image: {
-        width: 200,
-        height: 200,
-        borderWidth: 1,
-        borderColor: 'black'
-    },
-});
+const Test = () => {
+  const [sharedData, setSharedData] = useState(null);
+  const [sharedMimeType, setSharedMimeType] = useState(null);
 
-export default App;
+  const handleShare = useCallback((item: ?SharedItem) => {
+    if (!item) {
+      return;
+    }
+
+    const { mimeType, data, extraData } = item;
+
+    setSharedData(data);
+    setSharedMimeType(mimeType);
+    // You can receive extra data from your custom Share View
+    console.log(extraData);
+  }, []);
+
+  useEffect(() => {
+    ShareMenu.getInitialShare(handleShare);
+  }, []);
+
+  useEffect(() => {
+    const listener = ShareMenu.addNewShareListener(handleShare);
+
+    return () => {
+      listener.remove();
+    };
+  }, []);
+
+  if (!sharedMimeType && !sharedData) {
+    // The user hasn't shared anything yet
+    return null;
+  }
+
+  if (sharedMimeType === "text/plain") {
+    // The user shared text
+    return <Text>Shared text: {sharedData}</Text>;
+  }
+
+  if (sharedMimeType.startsWith("image/")) {
+    // The user shared an image
+    return (
+      <View>
+        <Text>Shared image:</Text>
+        <Image source={{ uri: sharedData }} />
+      </View>
+    );
+  }
+
+  // The user shared a file in general
+  return (
+    <View>
+      <Text>Shared mime type: {sharedMimeType}</Text>
+      <Text>Shared file location: {sharedData}</Text>
+    </View>
+  );
+};
+
+const Share = () => {
+  const [sharedData, setSharedData] = useState("");
+  const [sharedMimeType, setSharedMimeType] = useState("");
+
+  useEffect(() => {
+    ShareMenuReactView.data().then(({ mimeType, data }) => {
+      setSharedData(data);
+      setSharedMimeType(mimeType);
+    });
+  }, []);
+
+  return (
+    <View>
+      <Button
+        title="Dismiss"
+        onPress={() => {
+          ShareMenuReactView.dismissExtension();
+        }}
+      />
+      <Button
+        title="Send"
+        onPress={() => {
+          // Share something before dismissing
+          ShareMenuReactView.dismissExtension();
+        }}
+      />
+      <Button
+        title="Dismiss with Error"
+        onPress={() => {
+          ShareMenuReactView.dismissExtension("Something went wrong!");
+        }}
+      />
+      <Button
+        title="Continue In App"
+        onPress={() => {
+          ShareMenuReactView.continueInApp();
+        }}
+      />
+      <Button
+        title="Continue In App With Extra Data"
+        onPress={() => {
+          ShareMenuReactView.continueInApp({ hello: "from the other side" });
+        }}
+      />
+      {sharedMimeType === "text/plain" && <Text>{sharedData}</Text>}
+      {sharedMimeType.startsWith("image/") && (
+        <Image source={{ uri: sharedData }} />
+      )}
+    </View>
+  );
+};
+
+AppRegistry.registerComponent("Test", () => Test);
+AppRegistry.registerComponent("ShareMenuModuleComponent", () => Share);
 ```
 
 Or check the "example" directory for an example application.
@@ -111,3 +174,7 @@ Or check the "example" directory for an example application.
 ### iOS
 
 <img src="screenshots/ios-share-view.gif" width="47%">
+
+## Releasing a new version
+
+`$ npm version <minor|major|patch> && npm publish`

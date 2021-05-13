@@ -27,7 +27,7 @@ const App = () => {
             <Text style={styles.welcome}>React Native Share Menu</Text>
             {
                 sharedData ? (
-                    <Text style={styles.instructions}>{JSON.stringify(sharedData)}</Text>
+                    <Text style={styles.instructions} accessibilityLabel="sharedData">{JSON.stringify(sharedData)}</Text>
                 ) : null
             }
         </View>

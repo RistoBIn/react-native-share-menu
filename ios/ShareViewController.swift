@@ -73,6 +73,15 @@ class ShareViewController: SLComposeServiceViewController {
       cancelRequest()
       return
     }
+    
+    guard let hostAppId = self.hostAppId else {
+      self.exit(withError: NO_INFO_PLIST_INDENTIFIER_ERROR)
+      return
+    }
+    guard let userDefaults = UserDefaults(suiteName: "group.\(hostAppId)") else {
+      self.exit(withError: NO_APP_GROUP_ERROR)
+      return
+    }
 
     if let data = extraData {
       storeExtraData(data)
@@ -81,18 +90,78 @@ class ShareViewController: SLComposeServiceViewController {
     }
     
     if let contents = item.attachments {
-      for (index, attachment) in (contents).enumerated() {
+      let myGroup = DispatchGroup()
+      for (_, attachment) in (contents).enumerated() {
+        myGroup.enter()
         if attachment.isText {
-          storeText(withProvider: attachment, contents: item, index: index)
+          attachment.loadItem(forTypeIdentifier: kUTTypeText as String, options: nil) { (data, error) in
+            guard (error == nil) else {
+              self.exit(withError: error.debugDescription)
+              return
+            }
+            guard let text = data as? String else {
+              self.exit(withError: COULD_NOT_FIND_STRING_ERROR)
+              return
+            }
+            self.sharedItems.append(text);
+            self.sharedMimetypes.append("text/plain");
+            myGroup.leave()
+          }
         } else if attachment.isURL {
-          storeUrl(withProvider: attachment, contents: item, index: index)
+          attachment.loadItem(forTypeIdentifier: kUTTypeURL as String, options: nil) { (data, error) in
+            guard (error == nil) else {
+              self.exit(withError: error.debugDescription)
+              return
+            }
+            guard let url = data as? URL else {
+              self.exit(withError: COULD_NOT_FIND_URL_ERROR)
+              return
+            }
+            self.sharedItems.append(url.absoluteString);
+            self.sharedMimetypes.append("text/plain");
+            myGroup.leave()
+          }
         } else {
-          storeFile(withProvider: attachment, contents: item, index: index)
+          attachment.loadItem(forTypeIdentifier: kUTTypeData as String, options: nil) { (data, error) in
+            guard (error == nil) else {
+              self.exit(withError: error.debugDescription)
+              return
+            }
+            guard let url = data as? URL else {
+              self.exit(withError: COULD_NOT_FIND_IMG_ERROR)
+              return
+            }
+            guard let groupFileManagerContainer = FileManager.default
+                    .containerURL(forSecurityApplicationGroupIdentifier: "group.\(hostAppId)")
+            else {
+              self.exit(withError: NO_APP_GROUP_ERROR)
+              return
+            }
+            
+            let mimeType = url.extractMimeType()
+            let fileExtension = url.pathExtension
+            let fileName = UUID().uuidString
+            let filePath = groupFileManagerContainer
+              .appendingPathComponent("\(fileName).\(fileExtension)")
+            
+            guard self.moveFileToDisk(from: url, to: filePath) else {
+              self.exit(withError: COULD_NOT_SAVE_FILE_ERROR)
+              return
+            }
+            
+            self.sharedItems.append(filePath.absoluteString);
+            self.sharedMimetypes.append(mimeType);
+            myGroup.leave()
+          }
         }
+      }
+      
+      myGroup.notify(queue: .main) {
+        self.finalizeSharing(userDefaults: userDefaults);
       }
     }
   }
-
+  
   func storeExtraData(_ data: [String:Any]) {
     guard let hostAppId = self.hostAppId else {
       print("Error: \(NO_INFO_PLIST_INDENTIFIER_ERROR)")
@@ -117,113 +186,6 @@ class ShareViewController: SLComposeServiceViewController {
     }
     userDefaults.removeObject(forKey: USER_DEFAULTS_EXTRA_DATA_KEY)
     userDefaults.synchronize()
-  }
-  
-  func storeText(withProvider provider: NSItemProvider, contents: NSExtensionItem, index: Int) {
-    provider.loadItem(forTypeIdentifier: kUTTypeText as String, options: nil) { (data, error) in
-      guard (error == nil) else {
-        self.exit(withError: error.debugDescription)
-        return
-      }
-      guard let text = data as? String else {
-        self.exit(withError: COULD_NOT_FIND_STRING_ERROR)
-        return
-      }
-      guard let hostAppId = self.hostAppId else {
-        self.exit(withError: NO_INFO_PLIST_INDENTIFIER_ERROR)
-        return
-      }
-      guard let userDefaults = UserDefaults(suiteName: "group.\(hostAppId)") else {
-        self.exit(withError: NO_APP_GROUP_ERROR)
-        return
-      }
-      
-//      self.sharedItems = self.sharedItems == "" ? text : self.sharedItems + "," + text;
-//      self.sharedMimetypes = self.sharedMimetypes == "" ? "text/plain" : self.sharedMimetypes + ",text/plain";
-      self.sharedItems.append(text);
-      self.sharedMimetypes.append("text/plain");
-      
-      if index == (contents.attachments?.count)! - 1 {
-        self.finalizeSharing(userDefaults: userDefaults);
-      }
-    }
-  }
-  
-  func storeUrl(withProvider provider: NSItemProvider, contents: NSExtensionItem, index: Int) {
-    provider.loadItem(forTypeIdentifier: kUTTypeURL as String, options: nil) { (data, error) in
-      guard (error == nil) else {
-        self.exit(withError: error.debugDescription)
-        return
-      }
-      guard let url = data as? URL else {
-        self.exit(withError: COULD_NOT_FIND_URL_ERROR)
-        return
-      }
-      guard let hostAppId = self.hostAppId else {
-        self.exit(withError: NO_INFO_PLIST_INDENTIFIER_ERROR)
-        return
-      }
-      guard let userDefaults = UserDefaults(suiteName: "group.\(hostAppId)") else {
-        self.exit(withError: NO_APP_GROUP_ERROR)
-        return
-      }
-      
-//      self.sharedItems = self.sharedItems == "" ? url.absoluteString : self.sharedItems + "," + url.absoluteString;
-//      self.sharedMimetypes = self.sharedMimetypes == "" ? "text/plain" : self.sharedMimetypes + ",text/plain";
-      self.sharedItems.append(url.absoluteString);
-      self.sharedMimetypes.append("text/plain");
-      
-      if index == (contents.attachments?.count)! - 1 {
-        self.finalizeSharing(userDefaults: userDefaults);
-      }
-    }
-  }
-  
-  func storeFile(withProvider provider: NSItemProvider, contents: NSExtensionItem, index: Int) {
-    provider.loadItem(forTypeIdentifier: kUTTypeData as String, options: nil) { (data, error) in
-      guard (error == nil) else {
-        self.exit(withError: error.debugDescription)
-        return
-      }
-      guard let url = data as? URL else {
-        self.exit(withError: COULD_NOT_FIND_IMG_ERROR)
-        return
-      }
-      guard let hostAppId = self.hostAppId else {
-        self.exit(withError: NO_INFO_PLIST_INDENTIFIER_ERROR)
-        return
-      }
-      guard let userDefaults = UserDefaults(suiteName: "group.\(hostAppId)") else {
-        self.exit(withError: NO_APP_GROUP_ERROR)
-        return
-      }
-      guard let groupFileManagerContainer = FileManager.default
-              .containerURL(forSecurityApplicationGroupIdentifier: "group.\(hostAppId)")
-      else {
-        self.exit(withError: NO_APP_GROUP_ERROR)
-        return
-      }
-      
-      let mimeType = url.extractMimeType()
-      let fileExtension = url.pathExtension
-      let fileName = UUID().uuidString
-      let filePath = groupFileManagerContainer
-        .appendingPathComponent("\(fileName).\(fileExtension)")
-      
-      guard self.moveFileToDisk(from: url, to: filePath) else {
-        self.exit(withError: COULD_NOT_SAVE_FILE_ERROR)
-        return
-      }
-      
-//      self.sharedItems = self.sharedItems == "" ? filePath.absoluteString : self.sharedItems + "," + filePath.absoluteString;
-//      self.sharedMimetypes = self.sharedMimetypes == "" ? mimeType : self.sharedMimetypes + "," + mimeType;
-      self.sharedItems.append(filePath.absoluteString);
-      self.sharedMimetypes.append(mimeType);
-      
-      if index == (contents.attachments?.count)! - 1 {
-        self.finalizeSharing(userDefaults: userDefaults);
-      }
-    }
   }
   
   func finalizeSharing(userDefaults: UserDefaults) {
