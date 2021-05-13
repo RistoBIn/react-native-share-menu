@@ -3,6 +3,7 @@
 [![npm version](https://badge.fury.io/js/react-native-share-menu.svg)](https://www.npmjs.com/package/react-native-share-menu)
 
 Add your app as a target for sharing from other apps and write iOS Share Extensions in React Native.
+This plugin support multi files sharing feature in iOS/Android
 
 ## Installation
 
